@@ -1,4 +1,6 @@
 import type { TCM, Property, Lead, Tour, ActivityLog, FollowUp, HandoffMessage, ActiveSequence } from "./types";
+import FEATURE_FLAGS from "./featureFlags";
+import { UPLOADED_LEADS } from "./uploaded-leads";
 
 const now = new Date();
 const iso = (d: Date) => d.toISOString();
@@ -73,7 +75,7 @@ export const PROPERTIES: Property[] = [...pgsAsProperties(), ...LEGACY_SEED];
 /*    tcm-3 Rohan (improving):  cold + overdue follow-ups               */
 /*    tcm-4 Neha (hot streak):  back-to-back high-confidence tours      */
 /* ------------------------------------------------------------------ */
-export const LEADS: Lead[] = [
+const LEADS_SEED: Lead[] = [
   /* ====== tcm-1 Aarav · Koramangala · closer ====== */
   { id: "l-1", name: "Karthik R.", phone: "+91 98xxx 12345", source: "Instagram",
     budget: 14000, moveInDate: iso(addDays(now, 3)), preferredArea: "Koramangala",
@@ -197,6 +199,8 @@ export const LEADS: Lead[] = [
     tags: ["upgrade-room"], nextFollowUpAt: iso(addHours(now, 9)), responseSpeedMins: 4,
     createdAt: iso(addDays(now, -2)), updatedAt: iso(addHours(now, -3)) },
 ];
+
+export const LEADS: Lead[] = FEATURE_FLAGS.leadUpload ? [...UPLOADED_LEADS, ...LEADS_SEED] : LEADS_SEED;
 
 function addMinutes(d: Date, n: number) { const x = new Date(d); x.setMinutes(d.getMinutes() + n); return x; }
 

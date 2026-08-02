@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { useMountedNow } from "@/hooks/use-now";
 import { sendTourMessage as sendOwnerTourMessage } from "@/owner/messaging";
 import { useSettings } from "@/myt/lib/settings-context";
+import FEATURE_FLAGS from "@/lib/featureFlags";
 
 const TAG_OPTIONS = ["price-issue", "location-mismatch", "parents-involved", "urgent", "budget-low"];
 const OBJECTIONS = ["Budget", "Location", "Amenities", "Timing", "Parents", "Comparing options", "Other"];
@@ -234,23 +235,25 @@ export function LeadControlPanel() {
             <TabsContent value="control" className="space-y-4 pt-4">
               <SequenceChip leadId={lead.id} />
 
-              <Section title="Routing">
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline" size="sm" className="flex-1"
-                    onClick={() => {
-                      const r = autoAssignLead(lead.id);
-                      const tcm = tcms.find((t) => t.id === r.tcmId);
-                      toast.success(`Auto-routed to ${tcm?.name ?? "TCM"}`, { description: r.reasons.join(" · ") });
-                    }}
-                  >
-                    <Zap className="h-3.5 w-3.5 mr-1.5" /> Auto-route to best TCM
-                  </Button>
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Currently with <span className="text-foreground font-medium">{tcm?.name ?? "—"}</span> · {tcm?.zone ?? "—"} · {Math.round((tcm?.conversionRate ?? 0) * 100)}% conv
-                </div>
-              </Section>
+              {FEATURE_FLAGS.leadRouting && (
+                <Section title="Routing">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline" size="sm" className="flex-1"
+                      onClick={() => {
+                        const r = autoAssignLead(lead.id);
+                        const tcm = tcms.find((t) => t.id === r.tcmId);
+                        toast.success(`Auto-routed to ${tcm?.name ?? "TCM"}`, { description: r.reasons.join(" · ") });
+                      }}
+                    >
+                      <Zap className="h-3.5 w-3.5 mr-1.5" /> Auto-route to best TCM
+                    </Button>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Currently with <span className="text-foreground font-medium">{tcm?.name ?? "—"}</span> · {tcm?.zone ?? "—"} · {Math.round((tcm?.conversionRate ?? 0) * 100)}% conv
+                  </div>
+                </Section>
+              )}
 
               <Section title="Status engine">
                 <Select value={lead.stage} onValueChange={(v) => {
@@ -554,45 +557,46 @@ export function LeadControlPanel() {
                     <PTQScorecard lead={lead} tour={target} />
 
                     {/* Send updates / reminders — one row, always visible post-tour */}
-                    <div className="flex flex-wrap gap-1.5">
-
-                      <Button
-                        size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-                        disabled={!prop}
-                        onClick={() => {
-                          if (!prop) return;
-                          sendOwnerTourMessage('post_visit_thanks', {
-                            tourId: target.id, leadName: lead.name, phone: lead.phone,
-                            propertyName: prop.name, area: prop.area,
-                            tourDate: target.scheduledAt.slice(0, 10),
-                            tourTime: target.scheduledAt.slice(11, 16),
-                            tcmName: tcms.find((t) => t.id === target.tcmId)?.name,
-                          });
-                          toast.success('Thank-you message opened');
-                        }}
-                      >
-                        <ExternalLink className="h-3 w-3" /> Thank-you msg
-                      </Button>
-                      <Button
-                        size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-                        onClick={() => {
-                          sendMessage(lead.id, 'Quick update — any thoughts on the property?');
-                          toast.success('Update sent');
-                        }}
-                      >
-                        <Send className="h-3 w-3" /> Send update
-                      </Button>
-                      <Button
-                        size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-                        onClick={() => {
-                          const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-                          setLeadFollowUp(lead.id, dueAt, priorityFor(pt.confidence), 'Post-tour reminder');
-                          toast.success('Reminder set for tomorrow');
-                        }}
-                      >
-                        <BellRing className="h-3 w-3" /> Set reminder
-                      </Button>
-                    </div>
+                    {FEATURE_FLAGS.notifications && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <Button
+                          size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                          disabled={!prop}
+                          onClick={() => {
+                            if (!prop) return;
+                            sendOwnerTourMessage('post_visit_thanks', {
+                              tourId: target.id, leadName: lead.name, phone: lead.phone,
+                              propertyName: prop.name, area: prop.area,
+                              tourDate: target.scheduledAt.slice(0, 10),
+                              tourTime: target.scheduledAt.slice(11, 16),
+                              tcmName: tcms.find((t) => t.id === target.tcmId)?.name,
+                            });
+                            toast.success('Thank-you message opened');
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" /> Thank-you msg
+                        </Button>
+                        <Button
+                          size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                          onClick={() => {
+                            sendMessage(lead.id, 'Quick update — any thoughts on the property?');
+                            toast.success('Update sent');
+                          }}
+                        >
+                          <Send className="h-3 w-3" /> Send update
+                        </Button>
+                        <Button
+                          size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+                          onClick={() => {
+                            const dueAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                            setLeadFollowUp(lead.id, dueAt, priorityFor(pt.confidence), 'Post-tour reminder');
+                            toast.success('Reminder set for tomorrow');
+                          }}
+                        >
+                          <BellRing className="h-3 w-3" /> Set reminder
+                        </Button>
+                      </div>
+                    )}
 
                     <Section title="Outcome (mandatory · explicit)">
                       <div className="text-[11px] text-muted-foreground mb-1.5">
